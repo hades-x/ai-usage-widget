@@ -4,6 +4,8 @@
 'use strict';
 
 // Fixed timezone so local-time expectations are deterministic (DESIGN §2: fr_FR, Paris).
+// Must stay before any Date use and before any require that may compute local times:
+// Node re-reads TZ on assignment, so this is effective for every later call.
 process.env.TZ = 'Europe/Paris';
 
 const assert = require('node:assert/strict');
@@ -12,11 +14,12 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const fmt = require(path.join(ROOT, 'ai-usage@hades-x.github.io', 'lib', 'format.js'));
-const example = JSON.parse(fs.readFileSync(path.join(ROOT, '..', 'docs', 'examples', 'state.example.json'), 'utf8'));
+// Synthetic fixture: every value-specific assertion uses it, never the docs sample.
+const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'state.json'), 'utf8'));
 
 const NBSP = '\u00a0';
 const RESET = '\u27f2';
-const NOW = Date.parse('2026-10-08T14:30:00Z'); // == example.generated_at
+const NOW = Date.parse(fixture.generated_at); // injected clock for every time-dependent call
 
 let passed = 0;
 const failures = [];
@@ -108,7 +111,7 @@ test('formatCountdown: hours and minutes', () => {
     assert.equal(fmt.formatCountdown(3 * 3600000 + 5 * 60000), '3 h 05');
 });
 
-test('formatResetText: under 24 h shows HH:MM + countdown (example 5 h window)', () => {
+test('formatResetText: under 24 h shows HH:MM + countdown (fixture 5 h window)', () => {
     // resets 16:00Z = 18:00 Paris, now 14:30Z -> 1h30 left
     const t = fmt.formatResetText('2026-10-08T16:00:00Z', NOW);
     assert.equal(t, `${RESET} 18:00 · 1 h 30`);
@@ -128,26 +131,26 @@ test('formatResetText: already past and invalid inputs', () => {
 });
 
 test('stalenessOf: fresh, stale (> 3 x interval), missing generated_at', () => {
-    const fresh = fmt.stalenessOf(example, NOW + 60 * 1000);
+    const fresh = fmt.stalenessOf(fixture, NOW + 60 * 1000);
     assert.equal(fresh.stale, false);
     assert.equal(fresh.ageS, 60);
-    const stale = fmt.stalenessOf(example, NOW + 181 * 1000);
+    const stale = fmt.stalenessOf(fixture, NOW + 181 * 1000);
     assert.equal(stale.stale, true);
-    const exact = fmt.stalenessOf(example, NOW + 180 * 1000);
+    const exact = fmt.stalenessOf(fixture, NOW + 180 * 1000);
     assert.equal(exact.stale, false, 'exactly 3 x interval is not stale');
     const missing = fmt.stalenessOf({ generated_at: null }, NOW);
     assert.deepEqual(missing, { stale: true, ageS: null });
 });
 
 test('stalenessOf: missing refresh_interval_s falls back to 60 s', () => {
-    const s = clone(example);
+    const s = clone(fixture);
     delete s.refresh_interval_s;
     assert.equal(fmt.stalenessOf(s, NOW + 170 * 1000).stale, false);
     assert.equal(fmt.stalenessOf(s, NOW + 181 * 1000).stale, true);
 });
 
 test('stalenessOf: future generated_at clamps age to 0 (clock skew)', () => {
-    assert.deepEqual(fmt.stalenessOf(example, NOW - 5000), { stale: false, ageS: 0 });
+    assert.deepEqual(fmt.stalenessOf(fixture, NOW - 5000), { stale: false, ageS: 0 });
 });
 
 test('relativeAge: seconds, minutes, hours, days, unknown', () => {
@@ -161,7 +164,7 @@ test('relativeAge: seconds, minutes, hours, days, unknown', () => {
 
 // -------------------------------------------------------- windows & providers
 test('bindingWindow: max used_percent, ignores null windows and nulls', () => {
-    const w = fmt.bindingWindow(example.providers.claude.windows);
+    const w = fmt.bindingWindow(fixture.providers.claude.windows);
     assert.equal(w.id, 'five_hour');
     assert.equal(fmt.bindingWindow([null, { id: 'a', used_percent: null }, { id: 'b', used_percent: 12 }, { id: 'c', used_percent: 40 }]).id, 'c');
     assert.equal(fmt.bindingWindow([]), null);
@@ -193,10 +196,10 @@ test('formatWindowValue: reset_since_observation -> réinitialisé, else percent
 
 test('visibleProviders: order claude, codex; hides unavailable and unchecked', () => {
     const ids = (arr) => arr.map(p => p.id);
-    assert.deepEqual(ids(fmt.visibleProviders(example, {})), ['claude', 'codex']);
-    assert.deepEqual(ids(fmt.visibleProviders(example, { showCodex: false })), ['claude']);
-    assert.deepEqual(ids(fmt.visibleProviders(example, { showClaude: false, showCodex: false })), []);
-    const s = clone(example);
+    assert.deepEqual(ids(fmt.visibleProviders(fixture, {})), ['claude', 'codex']);
+    assert.deepEqual(ids(fmt.visibleProviders(fixture, { showCodex: false })), ['claude']);
+    assert.deepEqual(ids(fmt.visibleProviders(fixture, { showClaude: false, showCodex: false })), []);
+    const s = clone(fixture);
     s.providers.codex.available = false;
     assert.deepEqual(ids(fmt.visibleProviders(s, {})), ['claude']);
     delete s.providers.claude;
@@ -206,12 +209,12 @@ test('visibleProviders: order claude, codex; hides unavailable and unchecked', (
 });
 
 test('isProviderStale: state stale OR plan.stale', () => {
-    const claude = example.providers.claude;
-    assert.equal(fmt.isProviderStale(claude, example, NOW), false);
-    assert.equal(fmt.isProviderStale(claude, example, NOW + 200000), true);
+    const claude = fixture.providers.claude;
+    assert.equal(fmt.isProviderStale(claude, fixture, NOW), false);
+    assert.equal(fmt.isProviderStale(claude, fixture, NOW + 200000), true);
     const planStale = clone(claude);
     planStale.plan.stale = true;
-    assert.equal(fmt.isProviderStale(planStale, example, NOW), true);
+    assert.equal(fmt.isProviderStale(planStale, fixture, NOW), true);
 });
 
 test('providerColor and labelColor follow DESIGN §1', () => {
@@ -225,7 +228,7 @@ test('providerColor and labelColor follow DESIGN §1', () => {
 });
 
 test('panelChipText: percent / tokens / both, with token fallback without windows', () => {
-    const claude = example.providers.claude;
+    const claude = fixture.providers.claude;
     assert.equal(fmt.panelChipText(claude, 'percent'), '62%');
     assert.equal(fmt.panelChipText(claude, 'tokens'), '3,2 M');
     assert.equal(fmt.panelChipText(claude, 'both'), '62% · 3,2 M');
@@ -236,7 +239,7 @@ test('panelChipText: percent / tokens / both, with token fallback without window
 });
 
 test('selectCardWindows: 5 h first, then weekly, max 2 by default', () => {
-    const got = fmt.selectCardWindows(example.providers.claude.windows).map(w => w.id);
+    const got = fmt.selectCardWindows(fixture.providers.claude.windows).map(w => w.id);
     assert.deepEqual(got, ['five_hour', 'seven_day']);
     const reordered = fmt.selectCardWindows([
         { id: 'seven_day', window_minutes: 10080 },
@@ -248,7 +251,7 @@ test('selectCardWindows: 5 h first, then weekly, max 2 by default', () => {
 });
 
 test('sparklineHeights: 14 values, oldest first, normalised to max', () => {
-    const h = fmt.sparklineHeights(example.providers.claude.tokens.daily_14d);
+    const h = fmt.sparklineHeights(fixture.providers.claude.tokens.daily_14d);
     assert.equal(h.length, 14);
     assert.equal(Math.max(...h), 1);
     assert.equal(h[0], 0);
@@ -269,33 +272,33 @@ test('sparklineHeights: all zeros, short input padded, long input truncated', ()
 });
 
 test('formatTopModels: strips claude- prefix, percent shares, top 2', () => {
-    assert.equal(fmt.formatTopModels(example.providers.claude.tokens.by_model_7d, 2),
+    assert.equal(fmt.formatTopModels(fixture.providers.claude.tokens.by_model_7d, 2),
         `opus-5-5 72${NBSP}% · haiku-5-5 28${NBSP}%`);
-    assert.equal(fmt.formatTopModels(example.providers.codex.tokens.by_model_7d, 2),
+    assert.equal(fmt.formatTopModels(fixture.providers.codex.tokens.by_model_7d, 2),
         `gpt-6.1-sol 100${NBSP}%`);
     assert.equal(fmt.formatTopModels([{ model: 'x', share: null }], 2), '');
     assert.equal(fmt.formatTopModels(undefined, 2), '');
 });
 
 test('formatTokensSummary matches DESIGN §2 line', () => {
-    assert.equal(fmt.formatTokensSummary(example.providers.claude.tokens),
+    assert.equal(fmt.formatTokensSummary(fixture.providers.claude.tokens),
         "Aujourd'hui 3,2 M · 7 j 41,3 M · 30 j 163 M");
-    assert.equal(fmt.formatTokensSummary(example.providers.codex.tokens),
+    assert.equal(fmt.formatTokensSummary(fixture.providers.codex.tokens),
         "Aujourd'hui 25,4 M · 7 j 170 M · 30 j 423 M");
     assert.equal(fmt.formatTokensSummary(null),
         "Aujourd'hui \u2014 · 7 j \u2014 · 30 j \u2014");
 });
 
 test('formatTodayTokensLine (date-menu card footer)', () => {
-    assert.equal(fmt.formatTodayTokensLine([example.providers.claude, example.providers.codex]),
+    assert.equal(fmt.formatTodayTokensLine([fixture.providers.claude, fixture.providers.codex]),
         "3,2 M + 25,4 M tokens aujourd'hui");
-    assert.equal(fmt.formatTodayTokensLine([example.providers.codex]), "25,4 M tokens aujourd'hui");
+    assert.equal(fmt.formatTodayTokensLine([fixture.providers.codex]), "25,4 M tokens aujourd'hui");
     assert.equal(fmt.formatTodayTokensLine([]), "0 tokens aujourd'hui");
     assert.equal(fmt.formatTodayTokensLine([{ tokens: null }]), "0 tokens aujourd'hui");
 });
 
 test('planNotice: error mapping, stale suffix, nothing to say', () => {
-    assert.equal(fmt.planNotice(example.providers.claude.plan), null);
+    assert.equal(fmt.planNotice(fixture.providers.claude.plan), null);
     assert.equal(fmt.planNotice({ error: 'token_expired' }),
         'Token expiré — lance `claude` pour le rafraîchir');
     assert.equal(fmt.planNotice({ error: 'http_429', observed_at: null }),
@@ -315,7 +318,7 @@ test('planNotice: error mapping, stale suffix, nothing to say', () => {
 });
 
 test('notificationKey: stable per (provider, window, reset bucket, level)', () => {
-    const w = example.providers.claude.windows[0];
+    const w = fixture.providers.claude.windows[0];
     // 16:00Z = 960 x 15 min buckets since epoch: 2026-10-08T16:00:00Z / 900000 is an integer
     const bucket = String(Date.parse('2026-10-08T16:00:00Z') / 900000);
     assert.equal(fmt.notificationKey('claude', w, 'warn'), `claude|five_hour|${bucket}|warn`);
@@ -341,8 +344,8 @@ test('notificationKey: unparseable resets_at gives an empty bucket', () => {
     assert.equal(fmt.notificationKey('codex', { id: 'primary', resets_at: 'junk' }, 'crit'), 'codex|primary||crit');
 });
 
-test('notificationText matches DESIGN §4 example', () => {
-    const w = example.providers.claude.windows[0];
+test('notificationText matches DESIGN §4 fixture', () => {
+    const w = fixture.providers.claude.windows[0];
     assert.equal(
         fmt.notificationText('Claude Code', { id: 'five_hour', label: 'Session 5 h', used_percent: 82 }, 'warn', w.resets_at),
         `Claude Code — Session 5 h à 82${NBSP}% (réinit. 18:00)`);
@@ -365,13 +368,36 @@ test('hexToRgb: parses #RRGGBB, falls back to grey on junk', () => {
     assert.deepEqual(fmt.hexToRgb('nope'), [0.5, 0.5, 0.5]);
 });
 
-// ----------------------------------------------------- end-to-end sanity on example
-test('example state: chip + card texts for the documented sample', () => {
-    const c = example.providers.claude;
+// ----------------------------------------------------- end-to-end sanity on fixture
+test('fixture state: chip + card texts for the documented sample', () => {
+    const c = fixture.providers.claude;
     const bw = fmt.bindingWindow(c.windows);
     assert.equal(fmt.windowLevel(bw.used_percent, 80, 95), 'normal');
     assert.equal(fmt.formatResetText(bw.resets_at, NOW), `${RESET} 18:00 · 1 h 30`);
     assert.equal(fmt.formatResetText(c.windows[1].resets_at, NOW), `${RESET} lun. 01:00`);
+});
+
+// ------------------------------------------------- docs sample: shape smoke test only
+// Deliberately asserts no concrete values from docs/examples/state.example.json, so the
+// documentation can evolve without breaking CI. Value contracts live in the Python tests.
+test('docs example renders well-formed outputs (shape only)', () => {
+    const docs = JSON.parse(fs.readFileSync(path.join(ROOT, '..', 'docs', 'examples', 'state.example.json'), 'utf8'));
+    const pct = /^\d+%$/;
+    const providers = fmt.visibleProviders(docs, {});
+    assert.ok(providers.length > 0, 'at least one provider is visible');
+    for (const p of providers) {
+        const chip = fmt.panelChipText(p, 'both');
+        assert.equal(typeof chip, 'string');
+        assert.ok(chip.length > 0, `${p.id}: chip text is non-empty`);
+        const bw = fmt.bindingWindow(p.windows);
+        if (bw) assert.match(fmt.panelChipText(p, 'percent'), pct, `${p.id}: chip percent parses`);
+        assert.ok(fmt.formatTokensSummary(p.tokens).length > 0, `${p.id}: token summary non-empty`);
+        const h = fmt.sparklineHeights(p.tokens.daily_14d);
+        assert.equal(h.length, 14, `${p.id}: 14 sparkline values`);
+        assert.ok(h.every(v => Number.isFinite(v) && v >= 0 && v <= 1), `${p.id}: sparkline in 0..1`);
+        assert.ok(fmt.formatTodayTokensLine([p]).endsWith("tokens aujourd'hui"), `${p.id}: today line`);
+    }
+    assert.ok(fmt.formatTodayTokensLine(providers).length > 0);
 });
 
 // ------------------------------------------------------------------- summary
