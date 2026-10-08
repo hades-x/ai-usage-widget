@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.zip
+/build/
+.venv/
+venv/
+.pytest_cache/
+node_modules/
+*.swp
+*~
+.DS_Store
+.idea/
+.vscode/
+gschemas.compiled

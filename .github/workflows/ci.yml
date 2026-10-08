@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  collector:
+    name: collector (python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Unit tests
+        run: cd collector && python3 -m unittest discover -s tests -v
+
+  extension:
+    name: extension (node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install glib tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-bin
+      - name: Pure JS tests
+        run: node extension/tests/run.js
+      - name: Syntax check extension JS
+        run: |
+          for f in $(git ls-files 'extension/*.js'); do node --check "$f"; done
+      - name: No ES module syntax in extension (GNOME 43 legacy API)
+        run: |
+          if grep -rnE '^\s*(import|export)\s' extension/ --include='*.js'; then
+            echo "import/export statements found in extension/ (must use legacy API)" >&2
+            exit 1
+          fi
+      - name: Validate GSettings schema
+        run: glib-compile-schemas --strict --dry-run extension/ai-usage@hades-x.github.io/schemas
+
+  shell-scripts:
+    name: bash syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash -n
+        run: |
+          for f in scripts/*.sh tools/headless/*.sh; do bash -n "$f"; done

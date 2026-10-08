@@ -1,0 +1,3 @@
+(() => { const i = Main.panel.statusArea['ai-usage']; if (!i) return 'NO INDICATOR; roles=' + Object.keys(Main.panel.statusArea).join(',');
+const box = i.container.get_parent(); const txt = []; const walk = a => { if (a.text !== undefined && a.text) txt.push(a.text); a.get_children().forEach(walk); }; walk(i);
+return JSON.stringify({parent: box && box.name, index: box ? box.get_children().indexOf(i.container) : -1, visible: i.visible, w: i.width, h: i.height, labels: txt}); })()

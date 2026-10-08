@@ -1,0 +1,9 @@
+{
+  "uuid": "ai-usage@hades-x.github.io",
+  "name": "AI Usage",
+  "description": "Claude Code and Codex CLI token usage and plan quotas in the top bar and the date menu. Reads the state written by the ai-usage collector.",
+  "shell-version": ["43"],
+  "settings-schema": "org.gnome.shell.extensions.ai-usage",
+  "version": 3,
+  "url": "https://github.com/hades-x/ai-usage-widget"
+}

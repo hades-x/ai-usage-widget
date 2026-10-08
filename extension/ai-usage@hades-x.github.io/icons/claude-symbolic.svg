@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- Original shape: 8-ray spark (not a trademark logo). Symbolic: fill #000 + recoloured by the shell. -->
+  <g fill="#000000">
+    <rect x="7" y="1" width="2" height="14" rx="1"/>
+    <rect x="7" y="1" width="2" height="14" rx="1" transform="rotate(45 8 8)"/>
+    <rect x="7" y="1" width="2" height="14" rx="1" transform="rotate(90 8 8)"/>
+    <rect x="7" y="1" width="2" height="14" rx="1" transform="rotate(135 8 8)"/>
+    <circle cx="8" cy="8" r="1.6"/>
+  </g>
+</svg>

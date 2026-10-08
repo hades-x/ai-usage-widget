@@ -1,0 +1,13 @@
+[Unit]
+Description=AI usage collector (Claude Code / Codex token usage and plan quotas)
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/.local/share/ai-usage/collector
+Environment=PYTHONPATH=%h/.local/share/ai-usage/collector
+ExecStart=/usr/bin/python3 -m ai_usage collect
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=180
+NoNewPrivileges=yes
+MemoryMax=300M

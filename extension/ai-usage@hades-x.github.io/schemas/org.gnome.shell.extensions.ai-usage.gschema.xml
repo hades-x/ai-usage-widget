@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="ai-usage">
+  <schema id="org.gnome.shell.extensions.ai-usage" path="/org/gnome/shell/extensions/ai-usage/">
+    <key name="panel-position" type="s">
+      <choices>
+        <choice value="left"/>
+        <choice value="center"/>
+        <choice value="right"/>
+      </choices>
+      <default>'right'</default>
+      <summary>Panel position</summary>
+      <description>Where the indicator sits in the top bar.</description>
+    </key>
+    <key name="panel-mode" type="s">
+      <choices>
+        <choice value="percent"/>
+        <choice value="tokens"/>
+        <choice value="both"/>
+      </choices>
+      <default>'percent'</default>
+      <summary>Panel label</summary>
+      <description>Show the quota percentage, today's tokens, or both.</description>
+    </key>
+    <key name="show-in-panel" type="b">
+      <default>true</default>
+      <summary>Show indicator in the top bar</summary>
+    </key>
+    <key name="show-in-datemenu" type="b">
+      <default>true</default>
+      <summary>Show card in the date menu</summary>
+    </key>
+    <key name="show-claude" type="b">
+      <default>true</default>
+      <summary>Show Claude Code</summary>
+    </key>
+    <key name="show-codex" type="b">
+      <default>true</default>
+      <summary>Show Codex</summary>
+    </key>
+    <key name="notify-enabled" type="b">
+      <default>true</default>
+      <summary>Threshold notifications</summary>
+    </key>
+    <key name="warn-threshold" type="i">
+      <range min="1" max="100"/>
+      <default>80</default>
+      <summary>Warning threshold (%)</summary>
+    </key>
+    <key name="crit-threshold" type="i">
+      <range min="1" max="100"/>
+      <default>95</default>
+      <summary>Critical threshold (%)</summary>
+    </key>
+    <key name="notified-keys" type="as">
+      <default>[]</default>
+      <summary>Fired notification keys (internal)</summary>
+      <description>Threshold notifications already sent, most recent last. Not shown in preferences.</description>
+    </key>
+    <key name="state-path" type="s">
+      <default>''</default>
+      <summary>Path to state.json</summary>
+      <description>Empty string means $XDG_RUNTIME_DIR/ai-usage/state.json.</description>
+    </key>
+  </schema>
+</schemalist>
