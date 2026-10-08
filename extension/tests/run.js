@@ -111,7 +111,7 @@ test('formatCountdown: hours and minutes', () => {
     assert.equal(fmt.formatCountdown(3 * 3600000 + 5 * 60000), '3 h 05');
 });
 
-test('formatResetText: under 24 h shows HH:MM + countdown (fixture 5 h window)', () => {
+test('formatResetText: under 24 h shows HH:MM + countdown (5 h window)', () => {
     // resets 16:00Z = 18:00 Paris, now 14:30Z -> 1h30 left
     const t = fmt.formatResetText('2026-10-08T16:00:00Z', NOW);
     assert.equal(t, `${RESET} 18:00 · 1 h 30`);
@@ -344,7 +344,7 @@ test('notificationKey: unparseable resets_at gives an empty bucket', () => {
     assert.equal(fmt.notificationKey('codex', { id: 'primary', resets_at: 'junk' }, 'crit'), 'codex|primary||crit');
 });
 
-test('notificationText matches DESIGN §4 fixture', () => {
+test('notificationText matches DESIGN §4 example', () => {
     const w = fixture.providers.claude.windows[0];
     assert.equal(
         fmt.notificationText('Claude Code', { id: 'five_hour', label: 'Session 5 h', used_percent: 82 }, 'warn', w.resets_at),
@@ -369,7 +369,7 @@ test('hexToRgb: parses #RRGGBB, falls back to grey on junk', () => {
 });
 
 // ----------------------------------------------------- end-to-end sanity on fixture
-test('fixture state: chip + card texts for the documented sample', () => {
+test('fixture state: chip + card texts', () => {
     const c = fixture.providers.claude;
     const bw = fmt.bindingWindow(c.windows);
     assert.equal(fmt.windowLevel(bw.used_percent, 80, 95), 'normal');
